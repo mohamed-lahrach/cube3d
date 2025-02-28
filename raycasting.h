@@ -27,6 +27,7 @@
 #define FOV_ANGLE (60 * (M_PI / 180)) // 60 degrees field of view in radians
 #define DIST_PROJ_PLANE ((SCREEN_WIDTH / 2) / tan(FOV_ANGLE / 2))
 
+
 typedef struct s_map
 {
     int grid[MAP_HEIGHT][MAP_WIDTH];

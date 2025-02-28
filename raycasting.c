@@ -115,7 +115,7 @@ int has_wall_at(float x, float y, t_map *map)
 {
     int mapX = (int)(x / TILE_SIZE);
     int mapY = (int)(y / TILE_SIZE);
-    return (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) ? 1 : map->grid[mapY][mapX];
+    return (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) ? 1 : (map->grid[mapY][mapX] == '1');
 }
 float normalize_angle(float angle)
 {
@@ -291,6 +291,29 @@ void show_data_of_ray(int i, t_game *game)
     printf(" = %f degree", game->rays[i].ray_angle * (180 / M_PI));
     printf(", tan(angel) = %f\n", tan(game->rays[i].ray_angle));
 }
+// this is for debugging it does not affect the final result
+void show_data_of_rays(int i, t_game *game)
+{
+    for (int i = 0; i < NUM_RAYS; i++)
+    {
+        if (i < 10)
+        {
+            show_data_of_ray(i, game);
+        }
+
+        // Show data for ten rays in the middle
+        if (i >= NUM_RAYS / 2 - 5 && i < NUM_RAYS / 2 + 5)
+        {
+            show_data_of_ray(i, game);
+        }
+
+        // Show data for the last ten rays
+        if (i >= NUM_RAYS - 10)
+        {
+            show_data_of_ray(i, game);
+        }
+    }
+}
 
 void cast_all_rays(t_game *game)
 {
@@ -302,32 +325,62 @@ void cast_all_rays(t_game *game)
     for (int i = 0; i < NUM_RAYS; i++)
     {
         game->rays[i] = cast_ray(game, ray_angle);
-
-        // this is for debugging it does not affect the final result
-
-        // Show data for the first ten rays
-        // if (i < 10)
-        // {
-        //     show_data_of_ray(i, game);
-        // }
-
-        // // Show data for ten rays in the middle
-        // if (i >= NUM_RAYS / 2 - 5 && i < NUM_RAYS / 2 + 5)
-        // {
-        //     show_data_of_ray(i, game);
-        // }
-
-        // // Show data for the last ten rays
-        // if (i >= NUM_RAYS - 10)
-        // {
-        //     show_data_of_ray(i, game);
-        // }
-
         ray_angle += FOV_ANGLE / NUM_RAYS;
     }
 }
 
+void render_game_in_3D(t_game *game)
+{
+    int wall_strip_width = SCREEN_WIDTH / NUM_RAYS;
+    int ceiling_color = 0x87CEEB; // Sky blue color
+    int floor_color = 0x8B4513;   // Brown color for floor
 
+    for (int i = 0; i < NUM_RAYS; i++)
+    {
+        t_ray ray = game->rays[i];
+
+        // Calculate the distance to the projection plane
+        float perp_distance = ray.distance * cos(ray.ray_angle - game->player.rotation_angle);
+
+        // Calculate the height of the wall strip
+        int wall_strip_height = (int)(TILE_SIZE / perp_distance * DIST_PROJ_PLANE);
+
+        // Calculate the top and bottom pixel of the wall strip
+        int wall_top_pixel = (SCREEN_HEIGHT / 2) - (wall_strip_height / 2);
+        wall_top_pixel = wall_top_pixel < 0 ? 0 : wall_top_pixel;
+
+        int wall_bottom_pixel = (SCREEN_HEIGHT / 2) + (wall_strip_height / 2);
+        wall_bottom_pixel = wall_bottom_pixel > SCREEN_HEIGHT ? SCREEN_HEIGHT : wall_bottom_pixel;
+
+        // Draw ceiling (from top of screen to top of wall)
+        for (int y = 0; y < wall_top_pixel; y++)
+        {
+            int pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+            game->img_data[pixel] = ceiling_color & 0xFF;             // Blue
+            game->img_data[pixel + 1] = (ceiling_color >> 8) & 0xFF;  // Green
+            game->img_data[pixel + 2] = (ceiling_color >> 16) & 0xFF; // Red
+        }
+
+        // Draw the wall strip
+        for (int y = wall_top_pixel; y < wall_bottom_pixel; y++)
+        {
+            int color = ray.was_hit_vertical ? 0xFF0000 : 0x00FF00; // Red for vertical hits, green for horizontal hits
+            int pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+            game->img_data[pixel] = color & 0xFF;             // Blue
+            game->img_data[pixel + 1] = (color >> 8) & 0xFF;  // Green
+            game->img_data[pixel + 2] = (color >> 16) & 0xFF; // Red
+        }
+
+        // Draw floor (from bottom of wall to bottom of screen)
+        for (int y = wall_bottom_pixel; y < SCREEN_HEIGHT; y++)
+        {
+            int pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+            game->img_data[pixel] = floor_color & 0xFF;             // Blue
+            game->img_data[pixel + 1] = (floor_color >> 8) & 0xFF;  // Green
+            game->img_data[pixel + 2] = (floor_color >> 16) & 0xFF; // Red
+        }
+    }
+}
 
 void draw_rays(t_game *game)
 {
@@ -339,31 +392,14 @@ void draw_rays(t_game *game)
 int game_loop(t_game *game)
 {
     mlx_clear_window(game->mlx, game->win);
-
-    // Redraw the map
-    for (int i = 0; i < MAP_HEIGHT; i++)
-    {
-        for (int j = 0; j < MAP_WIDTH; j++)
-        {
-            int color = (game->map.grid[i][j] == 1) ? GRAY_COLOR : BLACK_COLOR;
-            draw_square(game->img_data, j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, color, game->size_line, game->bpp);
-        }
-    }
-    // my part 1: calculate the rays and draw them to visualize the raycasting
     // Update and redraw the player
     update_player(&game->player, &game->map);
-    render_player(game);
     // Cast and draw rays
     cast_all_rays(game);
-    // for visualization
-    draw_rays(game);
 
-
-    // your part 2: draw the 3D walls and the floor and ceiling
-    // do not change anything of part 1 all data you need is stored in the game structure
-    // do not worry about normenete i will update the code 
-    // this is the all data that you need to draw the 3D walls and the floor and ceiling
-
+    // your part 2: Put the image on walls and the floor and ceiling using testure mapping
+    // I think all your code will be in this function
+    render_game_in_3D(game);
 
     // Put the updated image onto the window
     mlx_put_image_to_window(game->mlx, game->win, game->img, 0, 0);
@@ -378,29 +414,37 @@ void init_game(t_game *game)
 
     // Initialize player
     game->player = (t_player){
-        .x = SCREEN_WIDTH / 2,
-        .y = SCREEN_HEIGHT / 2,
         .radius = 3,
-        .move_speed = 0.5,
-        .rotation_angle =M_PI / 2,
+        .move_speed = 1.5,
+        .rotation_angle = M_PI / 2,
         .turn_direction = 0,
         .walk_direction = 0,
         .strafe_direction = 0,
         .rotation_speed = 0.5 * (M_PI / 180)};
 
     // Initialize map for testing
-    int initial_map[MAP_HEIGHT][MAP_WIDTH] = {
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1},
-        {1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1},
-        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-        {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+    char initial_map[MAP_HEIGHT][MAP_WIDTH] = {
+        {'1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1'},
+        {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '1'},
+        {'1', '0', '0', '1', '0', '1', '0', '0', '0', '0', '0', '0', '1', '0', '1'},
+        {'1', '1', '1', '0', '1', '0', '0', '0', '0', '0', '1', '0', '1', '0', '1'},
+        {'1', '0', '0', '0', '0', '1', '0', '0', '0', '0', '1', '0', '1', '0', '1'},
+        {'1', '0', '0', '0', '0', '0', '0', 'P', '1', '1', '1', '1', '1', '0', '1'},
+        {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
+        {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
+        {'1', '1', '1', '1', '1', '1', '0', '0', '0', '1', '1', '1', '1', '0', '1'},
+        {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
+        {'1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1'}};
+
+    for (int i = 0; i < MAP_HEIGHT; i++)
+        for (int j = 0; j < MAP_WIDTH; j++)
+            if (initial_map[i][j] == 'P')
+            {
+                game->player.x = j * TILE_SIZE + TILE_SIZE / 2;
+                game->player.y = i * TILE_SIZE + TILE_SIZE / 2;
+                initial_map[i][j] = 0;
+            }
+
     for (int i = 0; i < MAP_HEIGHT; i++)
         for (int j = 0; j < MAP_WIDTH; j++)
             game->map.grid[i][j] = initial_map[i][j];
