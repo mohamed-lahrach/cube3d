@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   main.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mlahrach <mlahrach@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/03/07 05:39:10 by mlahrach          #+#    #+#             */
+/*   Updated: 2025/03/07 05:39:33 by mlahrach         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "raycasting.h"
 
 int main()
@@ -13,7 +25,8 @@ int main()
     //  the game_loop function is the most important part
     // where the game raycasting logic is implemented
     // and you also will impelement your part (2)
-    //I have drawn the walls ceiling and floor with colors but you will put an image on the walls and the floor and ceiling using texture mapping
+    //I have drawn the walls ceiling and floor with 
+    //colors but you will put an image on the walls and the floor and ceiling using texture mapping
     // do not change anything of part 1 all data you need is stored in the game structure
     // do not worry about normenete i will update the code
     // this is the all data that you need to implement your part
