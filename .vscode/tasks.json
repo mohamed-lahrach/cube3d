@@ -7,17 +7,19 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${file}",
+                "${workspaceFolder}/main.c",
+                "${workspaceFolder}/raycasting.c",
+                "${workspaceFolder}/mini_2Dmap.c",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}",
-                "-lm", // Link the math library
-                "-L${workspaceFolder}/minilibx-linux", // Path to the MiniLibX library
-                "-lmlx", // Link the MiniLibX library
-                "-lX11", // Link X11 library
-                "-lXext" // Link Xext library
+                "${workspaceFolder}/cube3d",
+                "-lm",
+                "-L${workspaceFolder}/minilibx-linux",
+                "-lmlx",
+                "-lX11",
+                "-lXext"
             ],
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [
                 "$gcc"

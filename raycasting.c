@@ -6,81 +6,6 @@ int close_window(void *param)
     exit(0);
 }
 
-void draw_square(char *img_data, int x, int y, int size, int color, int size_line, int bpp)
-{
-    for (int i = 0; i < size; i++)
-    {
-        for (int j = 0; j < size; j++)
-        {
-            int pixel = (y + i) * size_line + (x + j) * (bpp / 8);
-            img_data[pixel] = color & 0xFF;             // Blue
-            img_data[pixel + 1] = (color >> 8) & 0xFF;  // Green
-            img_data[pixel + 2] = (color >> 16) & 0xFF; // Red
-        }
-    }
-}
-
-void draw_line(char *img_data, int x0, int y0, int x1, int y1, int color, int size_line, int bpp, float alpha)
-{
-    double deltaX = x1 - x0;
-    double deltaY = y1 - y0;
-    int steps = fabs(deltaX) > fabs(deltaY) ? fabs(deltaX) : fabs(deltaY);
-    double xIncrement = deltaX / steps;
-    double yIncrement = deltaY / steps;
-    double x = x0;
-    double y = y0;
-
-    for (int i = 0; i <= steps; i++)
-    {
-        int pixel = (int)y * size_line + (int)x * (bpp / 8);
-
-        // Get the background color
-        unsigned char bg_b = img_data[pixel];
-        unsigned char bg_g = img_data[pixel + 1];
-        unsigned char bg_r = img_data[pixel + 2];
-
-        // Extract the color components
-        unsigned char r = (color >> 16) & 0xFF;
-        unsigned char g = (color >> 8) & 0xFF;
-        unsigned char b = color & 0xFF;
-
-        // Blend the colors
-        unsigned char new_r = (unsigned char)((r * alpha) + (bg_r * (1 - alpha)));
-        unsigned char new_g = (unsigned char)((g * alpha) + (bg_g * (1 - alpha)));
-        unsigned char new_b = (unsigned char)((b * alpha) + (bg_b * (1 - alpha)));
-
-        // Set the new color
-        img_data[pixel] = new_b;     // Blue
-        img_data[pixel + 1] = new_g; // Green
-        img_data[pixel + 2] = new_r; // Red
-
-        x += xIncrement;
-        y += yIncrement;
-    }
-}
-
-void draw_circle(char *img_data, int x0, int y0, int radius, int color, int size_line, int bpp)
-{
-    for (int y = -radius; y <= radius; y++)
-    {
-        for (int x = -radius; x <= radius; x++)
-        {
-            if (x * x + y * y <= radius * radius)
-            {
-                int pixel = (y0 + y) * size_line + (x0 + x) * (bpp / 8);
-                img_data[pixel] = color & 0xFF;             // Blue
-                img_data[pixel + 1] = (color >> 8) & 0xFF;  // Green
-                img_data[pixel + 2] = (color >> 16) & 0xFF; // Red
-            }
-        }
-    }
-}
-
-void render_player(t_game *game)
-{
-    draw_circle(game->img_data, game->player.x, game->player.y, game->player.radius, RED_COLOR, game->size_line, game->bpp);
-}
-
 int key_press(int keycode, t_game *game)
 {
     if (keycode == KEY_W)
@@ -99,7 +24,6 @@ int key_press(int keycode, t_game *game)
         exit(0);
     return 0;
 }
-
 int key_release(int keycode, t_game *game)
 {
     if (keycode == KEY_W || keycode == KEY_S)
@@ -117,6 +41,15 @@ int has_wall_at(float x, float y, t_map *map)
     int mapY = (int)(y / TILE_SIZE);
     return (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) ? 1 : (map->grid[mapY][mapX] == '1');
 }
+
+int can_move_to(float newX, float newY, t_game *game)
+{
+    // Check all corners of the player's bounding box
+    return !has_wall_at(newX + game->player.radius, newY + game->player.radius, &game->map) &&
+           !has_wall_at(newX - game->player.radius, newY + game->player.radius, &game->map) &&
+           !has_wall_at(newX + game->player.radius, newY - game->player.radius, &game->map) &&
+           !has_wall_at(newX - game->player.radius, newY - game->player.radius, &game->map);
+}
 float normalize_angle(float angle)
 {
     angle = fmod(angle, 2 * M_PI);
@@ -124,22 +57,23 @@ float normalize_angle(float angle)
         angle = (2 * M_PI) + angle;
     return angle;
 }
-void update_player(t_player *player, t_map *map)
+void update_player(t_game *game)
 {
-    float moveStep = player->walk_direction * player->move_speed;
-    float strafeStep = player->strafe_direction * player->move_speed;
+    float moveStep = game->player.walk_direction * game->player.move_speed;
+    float strafeStep = game->player.strafe_direction * game->player.move_speed;
 
-    float newX = player->x + cos(player->rotation_angle) * moveStep - sin(player->rotation_angle) * strafeStep;
-    float newY = player->y + sin(player->rotation_angle) * moveStep + cos(player->rotation_angle) * strafeStep;
+    float newPlayerX = game->player.x + cos(game->player.rotation_angle) * moveStep - sin(game->player.rotation_angle) * strafeStep;
 
-    if (!has_wall_at(newX, newY, map))
+    float newPlayerY = game->player.y + sin(game->player.rotation_angle) * moveStep + cos(game->player.rotation_angle) * strafeStep;
+
+    // Update the player's position only if the full new position is free of collision.
+    if (can_move_to(newPlayerX, newPlayerY, game))
     {
-        player->x = newX;
-        player->y = newY;
+        game->player.x = newPlayerX;
+        game->player.y = newPlayerY;
     }
-
-    player->rotation_angle += player->turn_direction * player->rotation_speed;
-    player->rotation_angle = fmod(player->rotation_angle, 2 * M_PI);
+    game->player.rotation_angle += game->player.turn_direction * game->player.rotation_speed;
+    game->player.rotation_angle = fmod(game->player.rotation_angle, 2 * M_PI);
 }
 t_ray cast_ray(t_game *game, float ray_angle)
 {
@@ -153,8 +87,8 @@ t_ray cast_ray(t_game *game, float ray_angle)
     float horz_hit_y;
     float yintercept;
     float xintercept;
-    float ystep;
-    float xstep;
+    float ystep_h;
+    float xstep_h;
     float next_horz_touch_x;
     float next_horz_touch_y;
 
@@ -184,34 +118,34 @@ t_ray cast_ray(t_game *game, float ray_angle)
     xintercept = game->player.x + (yintercept - game->player.y) / tan(ray.ray_angle);
 
     // 3. Calculate step increments
-    ystep = TILE_SIZE;
-    ystep *= is_ray_facing_up ? -1 : 1;
+    ystep_h = TILE_SIZE;
+    ystep_h *= is_ray_facing_up ? -1 : 1;
 
-    xstep = TILE_SIZE / tan(ray.ray_angle);
-    xstep *= (is_ray_facing_left && xstep > 0) ? -1 : 1;
-    xstep *= (is_ray_facing_right && xstep < 0) ? -1 : 1;
+    xstep_h = TILE_SIZE / tan(ray.ray_angle);
+    xstep_h *= (is_ray_facing_left && xstep_h > 0) ? -1 : 1;
+    xstep_h *= (is_ray_facing_right && xstep_h < 0) ? -1 : 1;
 
     // 4. Temporary position variables
     next_horz_touch_x = xintercept;
     next_horz_touch_y = yintercept;
 
     // 5. Adjust for exact grid lines
-    if (is_ray_facing_up)
-        next_horz_touch_y--;
+    int subtract_one_h = is_ray_facing_up ? 1 : 0;
+    // 5. Adjust for exact grid lines
 
     // 6. DDA algorithm for horizontal check
     while (next_horz_touch_x >= 0 && next_horz_touch_x <= SCREEN_WIDTH &&
            next_horz_touch_y >= 0 && next_horz_touch_y <= SCREEN_HEIGHT)
     {
-        if (has_wall_at(next_horz_touch_x, next_horz_touch_y, &game->map))
+        if (has_wall_at(next_horz_touch_x, next_horz_touch_y - subtract_one_h, &game->map))
         {
             horz_hit_x = next_horz_touch_x;
             horz_hit_y = next_horz_touch_y;
             found_horz_wall = 1;
             break;
         }
-        next_horz_touch_x += xstep;
-        next_horz_touch_y += ystep;
+        next_horz_touch_x += xstep_h;
+        next_horz_touch_y += ystep_h;
     }
 
     /*
@@ -243,14 +177,13 @@ t_ray cast_ray(t_game *game, float ray_angle)
     float next_vert_touch_y = yintercept_v;
 
     // 5. Adjust for exact grid lines
-    if (is_ray_facing_left)
-        next_vert_touch_x--;
+    int subtract_one_v = is_ray_facing_left ? 1 : 0;
 
     // 6. DDA algorithm for vertical check
     while (next_vert_touch_x >= 0 && next_vert_touch_x <= SCREEN_WIDTH &&
            next_vert_touch_y >= 0 && next_vert_touch_y <= SCREEN_HEIGHT)
     {
-        if (has_wall_at(next_vert_touch_x, next_vert_touch_y, &game->map))
+        if (has_wall_at(next_vert_touch_x - subtract_one_v, next_vert_touch_y, &game->map))
         {
             vert_hit_x = next_vert_touch_x;
             vert_hit_y = next_vert_touch_y;
@@ -287,31 +220,16 @@ t_ray cast_ray(t_game *game, float ray_angle)
 void show_data_of_ray(int i, t_game *game)
 {
     printf("Ray %d", i);
-    printf(" angle: %f radian", game->rays[i].ray_angle);
-    printf(" = %f degree", game->rays[i].ray_angle * (180 / M_PI));
+    printf(" angle: %f rad", game->rays[i].ray_angle);
+    printf(", %f deg", game->rays[i].ray_angle * (180 / M_PI));
     printf(", tan(angel) = %f\n", tan(game->rays[i].ray_angle));
 }
 // this is for debugging it does not affect the final result
-void show_data_of_rays(int i, t_game *game)
+void show_data_of_rays(t_game *game)
 {
     for (int i = 0; i < NUM_RAYS; i++)
     {
-        if (i < 10)
-        {
-            show_data_of_ray(i, game);
-        }
-
-        // Show data for ten rays in the middle
-        if (i >= NUM_RAYS / 2 - 5 && i < NUM_RAYS / 2 + 5)
-        {
-            show_data_of_ray(i, game);
-        }
-
-        // Show data for the last ten rays
-        if (i >= NUM_RAYS - 10)
-        {
-            show_data_of_ray(i, game);
-        }
+        show_data_of_ray(i, game);
     }
 }
 
@@ -343,7 +261,7 @@ void render_game_in_3D(t_game *game)
         float perp_distance = ray.distance * cos(ray.ray_angle - game->player.rotation_angle);
 
         // Calculate the height of the wall strip
-        int wall_strip_height = (int)(TILE_SIZE / perp_distance * DIST_PROJ_PLANE);
+        int wall_strip_height = (int)((TILE_SIZE / perp_distance) * DIST_PROJ_PLANE);
 
         // Calculate the top and bottom pixel of the wall strip
         int wall_top_pixel = (SCREEN_HEIGHT / 2) - (wall_strip_height / 2);
@@ -382,24 +300,18 @@ void render_game_in_3D(t_game *game)
     }
 }
 
-void draw_rays(t_game *game)
-{
-    for (int i = 0; i < NUM_RAYS; i++)
-    {
-        draw_line(game->img_data, game->player.x, game->player.y, game->rays[i].wall_hit_x, game->rays[i].wall_hit_y, RED_COLOR, game->size_line, game->bpp, 0.3);
-    }
-}
 int game_loop(t_game *game)
 {
     mlx_clear_window(game->mlx, game->win);
     // Update and redraw the player
-    update_player(&game->player, &game->map);
+    update_player(game);
     // Cast and draw rays
     cast_all_rays(game);
-
+    show_data_of_rays(game);
     // your part 2: Put the image on walls and the floor and ceiling using testure mapping
     // I think all your code will be in this function
     render_game_in_3D(game);
+    render_minimap(game);
 
     // Put the updated image onto the window
     mlx_put_image_to_window(game->mlx, game->win, game->img, 0, 0);
@@ -415,22 +327,22 @@ void init_game(t_game *game)
     // Initialize player
     game->player = (t_player){
         .radius = 3,
-        .move_speed = 1.5,
+        .move_speed = 1,
         .rotation_angle = M_PI / 2,
         .turn_direction = 0,
         .walk_direction = 0,
         .strafe_direction = 0,
-        .rotation_speed = 0.5 * (M_PI / 180)};
+        .rotation_speed = 0.4 * (M_PI / 180)};
 
     // Initialize map for testing
     char initial_map[MAP_HEIGHT][MAP_WIDTH] = {
         {'1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1'},
         {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '1'},
-        {'1', '0', '0', '1', '0', '1', '0', '0', '0', '0', '0', '0', '1', '0', '1'},
+        {'1', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '1'},
         {'1', '1', '1', '0', '1', '0', '0', '0', '0', '0', '1', '0', '1', '0', '1'},
         {'1', '0', '0', '0', '0', '1', '0', '0', '0', '0', '1', '0', '1', '0', '1'},
-        {'1', '0', '0', '0', '0', '0', '0', 'P', '1', '1', '1', '1', '1', '0', '1'},
-        {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
+        {'1', '0', '1', '0', '0', '0', '0', '1', '1', '1', '1', '1', '1', '0', '1'},
+        {'1', '0', '0', 'P', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
         {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},
         {'1', '1', '1', '1', '1', '1', '0', '0', '0', '1', '1', '1', '1', '0', '1'},
         {'1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1'},

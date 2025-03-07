@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "stdio.h": "c",
-        "mlx.h": "c"
+        "mlx.h": "c",
+        "raycasting.h": "c",
+        "map": "c",
+        "format": "c"
     }
 }

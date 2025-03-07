@@ -26,6 +26,7 @@
 #define NUM_RAYS (SCREEN_WIDTH / WALL_STRIP_WIDTH)
 #define FOV_ANGLE (60 * (M_PI / 180)) // 60 degrees field of view in radians
 #define DIST_PROJ_PLANE ((SCREEN_WIDTH / 2) / tan(FOV_ANGLE / 2))
+#define MINIMAP_SCALE_FACTOR 0.3
 
 
 typedef struct s_map
@@ -78,10 +79,13 @@ int key_press(int keycode, t_game *game);
 int key_release(int keycode, t_game *game);
 int has_wall_at(float x, float y, t_map *map);
 float normalize_angle(float angle);
-void update_player(t_player *player, t_map *map);
+void update_player(t_game *game);
+int can_move_to(float newX, float newY, t_game *game);
 t_ray cast_ray(t_game *game, float ray_angle);
 void show_data_of_ray(int i, t_game *game);
 void cast_all_rays(t_game *game);
-void draw_rays(t_game *game);
+void draw_rays(t_game *game, float factor);
+void render_game_in_3D(t_game *game);
 int game_loop(t_game *game);
 void init_game(t_game *game);
+void render_minimap(t_game *game);
