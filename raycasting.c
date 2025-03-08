@@ -6,7 +6,7 @@
 /*   By: mlahrach <mlahrach@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/07 05:39:05 by mlahrach          #+#    #+#             */
-/*   Updated: 2025/03/08 01:33:18 by mlahrach         ###   ########.fr       */
+/*   Updated: 2025/03/08 01:41:12 by mlahrach         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -261,52 +261,6 @@ void cast_all_rays(t_game *game)
 	{
 		game->rays[i] = cast_ray(game, ray_angle);
 		ray_angle += FOV_ANGLE / NUM_RAYS;
-	}
-}
-
-void render_game_in_3D(t_game *game)
-{
-	t_ray ray;
-	float perp_distance;
-	int wall_strip_height;
-	int wall_top_pixel;
-	int wall_bottom_pixel;
-	int pixel;
-	int color;
-
-	int ceiling_color = 0x87CEEB; // Sky blue color
-	int floor_color = 0x8B4513;	  // Brown color for floor
-	for (int i = 0; i < NUM_RAYS; i++)
-	{
-		ray = game->rays[i];
-		perp_distance = ray.distance * cos(ray.ray_angle - game->player.rotation_angle);
-		wall_strip_height = (int)((TILE_SIZE / perp_distance) * DIST_PROJ_PLANE);
-		wall_top_pixel = (SCREEN_HEIGHT / 2) - (wall_strip_height / 2);
-		wall_top_pixel = wall_top_pixel < 0 ? 0 : wall_top_pixel;
-		wall_bottom_pixel = (SCREEN_HEIGHT / 2) + (wall_strip_height / 2);
-		wall_bottom_pixel = wall_bottom_pixel > SCREEN_HEIGHT ? SCREEN_HEIGHT : wall_bottom_pixel;
-		for (int y = 0; y < wall_top_pixel; y++)
-		{
-			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
-			game->img_data[pixel] = ceiling_color & 0xFF;			  // Blue
-			game->img_data[pixel + 1] = (ceiling_color >> 8) & 0xFF;  // Green
-			game->img_data[pixel + 2] = (ceiling_color >> 16) & 0xFF; // Red
-		}
-		for (int y = wall_top_pixel; y < wall_bottom_pixel; y++)
-		{
-			color = ray.was_hit_vertical ? 0xFF0000 : 0x00FF00;
-			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
-			game->img_data[pixel] = color & 0xFF;			  // Blue
-			game->img_data[pixel + 1] = (color >> 8) & 0xFF;  // Green
-			game->img_data[pixel + 2] = (color >> 16) & 0xFF; // Red
-		}
-		for (int y = wall_bottom_pixel; y < SCREEN_HEIGHT; y++)
-		{
-			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
-			game->img_data[pixel] = floor_color & 0xFF;				// Blue
-			game->img_data[pixel + 1] = (floor_color >> 8) & 0xFF;	// Green
-			game->img_data[pixel + 2] = (floor_color >> 16) & 0xFF; // Red
-		}
 	}
 }
 

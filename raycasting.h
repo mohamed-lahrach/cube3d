@@ -6,7 +6,7 @@
 /*   By: mlahrach <mlahrach@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/07 05:38:59 by mlahrach          #+#    #+#             */
-/*   Updated: 2025/03/07 06:12:47 by mlahrach         ###   ########.fr       */
+/*   Updated: 2025/03/08 01:41:06 by mlahrach         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -122,3 +122,4 @@ void render_game_in_3D(t_game *game);
 int game_loop(t_game *game);
 void init_game(t_game *game);
 void render_minimap(t_game *game);
+void render_game_in_3D(t_game *game);
