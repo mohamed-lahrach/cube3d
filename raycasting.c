@@ -6,7 +6,7 @@
 /*   By: mlahrach <mlahrach@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/07 05:39:05 by mlahrach          #+#    #+#             */
-/*   Updated: 2025/03/07 06:11:34 by mlahrach         ###   ########.fr       */
+/*   Updated: 2025/03/08 01:33:18 by mlahrach         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -132,7 +132,8 @@ void calculate_check_coordinates(int direction, t_intercept_data *data, float *c
 }
 void perform_DDA(t_game *game, t_intercept_data *data, int direction)
 {
-	float check_x, check_y;
+	float check_x;
+	float check_y;
 
 	while (data->next_touch_x >= 0 && data->next_touch_x <= SCREEN_WIDTH &&
 		   data->next_touch_y >= 0 && data->next_touch_y <= SCREEN_HEIGHT)
@@ -201,7 +202,23 @@ void cast_vertical_ray(t_game *game, t_ray ray, t_intercept_data *data)
 		data->subtract_one = 0;
 	perform_DDA(game, data, VERTICAL);
 }
-
+void select_closest_hit(t_ray *ray, t_intercept_data vert_intercept_data, t_intercept_data horz_intercept_data, double vert_distance, double horz_distance)
+{
+	if (vert_distance < horz_distance)
+	{
+		ray->wall_hit_x = vert_intercept_data.hit_x;
+		ray->wall_hit_y = vert_intercept_data.hit_y;
+		ray->distance = vert_distance;
+		ray->was_hit_vertical = 1;
+	}
+	else
+	{
+		ray->wall_hit_x = horz_intercept_data.hit_x;
+		ray->wall_hit_y = horz_intercept_data.hit_y;
+		ray->distance = horz_distance;
+		ray->was_hit_vertical = 0;
+	}
+}
 t_ray cast_ray(t_game *game, float ray_angle)
 {
 	t_ray ray;
@@ -216,20 +233,7 @@ t_ray cast_ray(t_game *game, float ray_angle)
 	cast_vertical_ray(game, ray, &vert_intercept_data);
 	horz_distance = get_distance(horz_intercept_data, game);
 	vert_distance = get_distance(vert_intercept_data, game);
-	if (vert_distance < horz_distance)
-	{
-		ray.wall_hit_x = vert_intercept_data.hit_x;
-		ray.wall_hit_y = vert_intercept_data.hit_y;
-		ray.distance = vert_distance;
-		ray.was_hit_vertical = 1;
-	}
-	else
-	{
-		ray.wall_hit_x = horz_intercept_data.hit_x;
-		ray.wall_hit_y = horz_intercept_data.hit_y;
-		ray.distance = horz_distance;
-		ray.was_hit_vertical = 0;
-	}
+	select_closest_hit(&ray, vert_intercept_data, horz_intercept_data, vert_distance, horz_distance);
 	return (ray);
 }
 void show_data_of_ray(int i, t_game *game)
@@ -262,7 +266,6 @@ void cast_all_rays(t_game *game)
 
 void render_game_in_3D(t_game *game)
 {
-	int wall_strip_width;
 	t_ray ray;
 	float perp_distance;
 	int wall_strip_height;
@@ -271,43 +274,35 @@ void render_game_in_3D(t_game *game)
 	int pixel;
 	int color;
 
-	wall_strip_width = SCREEN_WIDTH / NUM_RAYS;
 	int ceiling_color = 0x87CEEB; // Sky blue color
 	int floor_color = 0x8B4513;	  // Brown color for floor
 	for (int i = 0; i < NUM_RAYS; i++)
 	{
 		ray = game->rays[i];
-		// Calculate the distance to the projection plane
 		perp_distance = ray.distance * cos(ray.ray_angle - game->player.rotation_angle);
-		// Calculate the height of the wall strip
 		wall_strip_height = (int)((TILE_SIZE / perp_distance) * DIST_PROJ_PLANE);
-		// Calculate the top and bottom pixel of the wall strip
 		wall_top_pixel = (SCREEN_HEIGHT / 2) - (wall_strip_height / 2);
 		wall_top_pixel = wall_top_pixel < 0 ? 0 : wall_top_pixel;
 		wall_bottom_pixel = (SCREEN_HEIGHT / 2) + (wall_strip_height / 2);
 		wall_bottom_pixel = wall_bottom_pixel > SCREEN_HEIGHT ? SCREEN_HEIGHT : wall_bottom_pixel;
-		// Draw ceiling (from top of screen to top of wall)
 		for (int y = 0; y < wall_top_pixel; y++)
 		{
-			pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
 			game->img_data[pixel] = ceiling_color & 0xFF;			  // Blue
 			game->img_data[pixel + 1] = (ceiling_color >> 8) & 0xFF;  // Green
 			game->img_data[pixel + 2] = (ceiling_color >> 16) & 0xFF; // Red
 		}
-		// Draw the wall strip
 		for (int y = wall_top_pixel; y < wall_bottom_pixel; y++)
 		{
 			color = ray.was_hit_vertical ? 0xFF0000 : 0x00FF00;
-			// Red for vertical hits, green for horizontal hits
-			pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
 			game->img_data[pixel] = color & 0xFF;			  // Blue
 			game->img_data[pixel + 1] = (color >> 8) & 0xFF;  // Green
 			game->img_data[pixel + 2] = (color >> 16) & 0xFF; // Red
 		}
-		// Draw floor (from bottom of wall to bottom of screen)
 		for (int y = wall_bottom_pixel; y < SCREEN_HEIGHT; y++)
 		{
-			pixel = (y * game->size_line) + (i * wall_strip_width * (game->bpp / 8));
+			pixel = (y * game->size_line) + (i * WALL_STRIP_WIDTH * (game->bpp / 8));
 			game->img_data[pixel] = floor_color & 0xFF;				// Blue
 			game->img_data[pixel + 1] = (floor_color >> 8) & 0xFF;	// Green
 			game->img_data[pixel + 2] = (floor_color >> 16) & 0xFF; // Red
